@@ -11,7 +11,7 @@ insert into accounts(
 select * from accounts where id = $1 limit 1;
 
 -- name: GetAccountForUpdate :one
-select * from accounts where id = $1 limit 1 for update;
+select * from accounts where id = $1 limit 1 for no key update;
 
 -- name: ListAccounts :many
 select * from accounts order by id
