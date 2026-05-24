@@ -75,30 +75,22 @@ func (store *Store) TransferTx(ctx context.Context, arg TransferTxParams) (Trans
 		if err != nil {
 			return err
 		}
-		recordCreate, err := queries.GetAccountForUpdate(ctx, arg.FromAccountID)
-		if err != nil {
-			return err
-		}
-		recordGet, err := queries.GetAccountForUpdate(ctx, arg.ToAccountID)
-		if err != nil {
-			return err
-		}
-		// update balance
-		result.FromAccount, err = queries.UpdateAccount(ctx, UpdateAccountParams{
-			ID:      arg.FromAccountID,
-			Balance: recordCreate.Balance - arg.Amount,
-		})
-		if err != nil {
-			return err
-		}
-		result.ToAccount, err = queries.UpdateAccount(ctx, UpdateAccountParams{
-			ID:      arg.ToAccountID,
-			Balance: recordGet.Balance + arg.Amount,
-		})
-		if err != nil {
-			return err
-		}
 
+		// update balance
+		result.FromAccount, err = queries.AddAccountBalance(ctx, AddAccountBalanceParams{
+			Amount: arg.Amount,
+			ID:     arg.FromAccountID,
+		})
+		if err != nil {
+			return err
+		}
+		result.ToAccount, err = queries.AddAccountBalance(ctx, AddAccountBalanceParams{
+			Amount: arg.Amount,
+			ID:     arg.ToAccountID,
+		})
+		if err != nil {
+			return err
+		}
 		return nil
 	})
 	if err != nil {
