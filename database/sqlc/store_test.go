@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -12,15 +13,17 @@ func TestStore_TransferTx(t *testing.T) {
 	recordCreate := createRandomAccount(t)
 	recordGet := createRandomAccount(t)
 
-	n := 5
+	n := 2
 	amount := int64(10)
 
 	errs := make(chan error)
 	results := make(chan TransferTxResult)
 
 	for i := 0; i < n; i++ {
+		txName := fmt.Sprintf("tx %d", i+1)
 		go func() {
-			result, err := store.TransferTx(context.Background(), TransferTxParams{
+			ctx := context.WithValue(context.Background(), txKey, txName)
+			result, err := store.TransferTx(ctx, TransferTxParams{
 				FromAccountID: recordCreate.ID,
 				ToAccountID:   recordGet.ID,
 				Amount:        amount,

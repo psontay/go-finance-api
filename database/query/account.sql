@@ -10,6 +10,9 @@ insert into accounts(
 -- name: GetAccount :one
 select * from accounts where id = $1 limit 1;
 
+-- name: GetAccountForUpdate :one
+select * from accounts where id = $1 limit 1 for update;
+
 -- name: ListAccounts :many
 select * from accounts order by id
 limit $1

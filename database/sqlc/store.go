@@ -40,6 +40,9 @@ type TransferTxParams struct {
 	Amount        int64 `json:"amount"`
 }
 
+var txKey = struct {
+}{}
+
 type TransferTxResult struct {
 	Transfer    Transfer `json:"transfer"`
 	FromAccount Account  `json:"from_account"`
@@ -52,6 +55,9 @@ func (store *Store) TransferTx(ctx context.Context, arg TransferTxParams) (Trans
 	var result TransferTxResult
 	err := store.execTx(ctx, func(queries *Queries) error {
 		var err error
+		txName := ctx.Value(txKey)
+
+		fmt.Println(txName, "create transfer")
 		result.Transfer, err = queries.CreateTransfer(ctx, CreateTransferParams{
 			FromAccountID: arg.FromAccountID,
 			ToAccountID:   arg.ToAccountID,
@@ -60,7 +66,7 @@ func (store *Store) TransferTx(ctx context.Context, arg TransferTxParams) (Trans
 		if err != nil {
 			return err
 		}
-
+		fmt.Println(txName, "create from entry")
 		result.FromEntry, err = queries.CreateEntry(ctx, CreateEntryParams{
 			AccountID: arg.FromAccountID,
 			Amount:    -arg.Amount,
@@ -68,9 +74,35 @@ func (store *Store) TransferTx(ctx context.Context, arg TransferTxParams) (Trans
 		if err != nil {
 			return err
 		}
+		fmt.Println(txName, "create to entry")
 		result.ToEntry, err = queries.CreateEntry(ctx, CreateEntryParams{
 			AccountID: arg.ToAccountID,
 			Amount:    arg.Amount,
+		})
+		if err != nil {
+			return err
+		}
+		fmt.Println(txName, "create record create")
+		recordCreate, err := queries.GetAccountForUpdate(ctx, arg.FromAccountID)
+		if err != nil {
+			return err
+		}
+		fmt.Println(txName, "create record get")
+		recordGet, err := queries.GetAccountForUpdate(ctx, arg.ToAccountID)
+		if err != nil {
+			return err
+		}
+		// update balance
+		result.FromAccount, err = queries.UpdateAccount(ctx, UpdateAccountParams{
+			ID:      arg.FromAccountID,
+			Balance: recordCreate.Balance - arg.Amount,
+		})
+		if err != nil {
+			return err
+		}
+		result.ToAccount, err = queries.UpdateAccount(ctx, UpdateAccountParams{
+			ID:      arg.ToAccountID,
+			Balance: recordGet.Balance + arg.Amount,
 		})
 		if err != nil {
 			return err
