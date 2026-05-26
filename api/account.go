@@ -1,0 +1,57 @@
+package api
+
+import (
+	database "SimpleBank/database/sqlc"
+	"database/sql"
+	"errors"
+	"net/http"
+
+	"github.com/gin-gonic/gin"
+)
+
+type createAccountRequest struct {
+	Owner    string `json:"owner" biding:"required"`
+	Currency string `json:"currency" binding:"required,oneof=USD EUR VND"`
+}
+
+func (server *Server) createAccount(ctx *gin.Context) {
+	var req createAccountRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, errorResponse(err))
+		return
+	}
+
+	arg := database.CreateAccountParams{
+		Owner:    req.Owner,
+		Balance:  0,
+		Currency: req.Currency,
+	}
+	account, err := server.store.CreateAccount(ctx, arg)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+		return
+	}
+	ctx.JSON(http.StatusOK, account)
+}
+
+type getAccountRequest struct {
+	ID int64 `uri:"id" biding:"required,min=1"`
+}
+
+func (server *Server) getAccount(ctx *gin.Context) {
+	var req getAccountRequest
+	if err := ctx.ShouldBindUri(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, errorResponse(err))
+		return
+	}
+	account, err := server.store.GetAccount(ctx, req.ID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			ctx.JSON(http.StatusNotFound, errorResponse(err))
+			return
+		}
+		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+		return
+	}
+	ctx.JSON(http.StatusOK, account)
+}
