@@ -30,11 +30,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Create app.env file
+      - name: Create .env file
         run: |
-          echo "DB_DRIVER=postgres" > app.env
-          echo "DB_SOURCE=postgresql://elvis:elvis@localhost:5432/simple_bank?sslmode=disable" >> app.env
-          echo "SERVER_ADDRESS=0.0.0.0:8080" >> app.env
+          echo "DB_DRIVER=postgres" > .env
+          echo "DB_SOURCE=postgresql://elvis:elvis@localhost:5432/simple_bank?sslmode=disable" >> .env
+          echo "SERVER_ADDRESS=0.0.0.0:8080" >> .env
 
       - name: Set up Go
         uses: actions/setup-go@v4

@@ -11,9 +11,10 @@ type Config struct {
 func LoadConfig(path string) (config Config, err error) {
 	viper.AddConfigPath(path)
 	// name of config file, exclude file extension
-	viper.SetConfigName("")
+	//viper.SetConfigName("")
 	// file extension
-	viper.SetConfigType("env")
+	//viper.SetConfigType("env")
+	viper.SetConfigFile(path + "/.env")
 
 	viper.AutomaticEnv()
 
