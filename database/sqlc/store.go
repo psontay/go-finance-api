@@ -24,7 +24,7 @@ func NewStore(db *sql.DB) Store {
 
 func (store *SQLStore) execTx(ctx context.Context, fn func(*Queries) error) error {
 	txOptions := &sql.TxOptions{
-		Isolation: sql.LevelSerializable,
+		Isolation: sql.LevelReadCommitted,
 		//ReadOnly:  false,
 	}
 	tx, err := store.db.BeginTx(ctx, txOptions)
@@ -90,7 +90,7 @@ func (store *SQLStore) TransferTx(ctx context.Context, arg TransferTxParams) (Tr
 		} else {
 			result.ToAccount, result.FromAccount, err = addMoney(ctx, queries, arg.ToAccountID, arg.Amount, arg.FromAccountID, -arg.Amount)
 		}
-		return nil
+		return err
 	})
 	if err != nil {
 		return result, err
