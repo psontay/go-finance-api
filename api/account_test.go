@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang/mock/gomock"
@@ -197,6 +198,65 @@ func TestCreateAccountAPI(t *testing.T) {
 	}
 }
 
+func TestListAccountsAPI(t *testing.T) {
+	listAccount := []database.Account{
+		{
+			1,
+			"test",
+			0,
+			"USD",
+			time.Now(),
+		},
+	}
+	testCases := []struct {
+		name          string
+		query         listAccountsQuery
+		buildStubs    func(store *mockdb.MockStore)
+		checkResponse func(t *testing.T, recorder *httptest.ResponseRecorder)
+	}{
+		{
+			name: "OK",
+			query: listAccountsQuery{
+				pageID:   1,
+				pageSize: 5,
+			},
+			buildStubs: func(store *mockdb.MockStore) {
+				arg := database.ListAccountsParams{
+					Limit:  5,
+					Offset: 0,
+				}
+				store.EXPECT().ListAccounts(gomock.Any(), gomock.Eq(arg)).Times(1).Return(listAccount, nil)
+			},
+			checkResponse: func(t *testing.T, recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusOK, recorder.Code)
+			},
+		},
+	}
+	for i := range testCases {
+		tc := testCases[i]
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			store := mockdb.NewMockStore(ctrl)
+			tc.buildStubs(store)
+
+			server := NewServer(store)
+			recorder := httptest.NewRecorder()
+
+			request, err := http.NewRequest(http.MethodGet, "/accounts", nil)
+			require.NoError(t, err)
+			q := request.URL.Query()
+			q.Add("page_id", fmt.Sprintf("%v", tc.query.pageID))
+			q.Add("page_size", fmt.Sprintf("%v", tc.query.pageSize))
+			request.URL.RawQuery = q.Encode()
+
+			server.router.ServeHTTP(recorder, request)
+			tc.checkResponse(t, recorder)
+		})
+	}
+}
+
 func requireBodyMatchAccount(t *testing.T, body *bytes.Buffer, account database.Account) {
 	data, err := ioutil.ReadAll(body)
 	require.NoError(t, err)
@@ -214,5 +274,9 @@ func randomAccount() database.Account {
 		Balance:  util.RandomMoney(),
 		Currency: util.RandomCurrency(),
 	}
+}
 
+type listAccountsQuery struct {
+	pageID   int
+	pageSize int
 }
