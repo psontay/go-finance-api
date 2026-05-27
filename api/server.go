@@ -5,11 +5,11 @@ import "github.com/gin-gonic/gin"
 
 // server serves http request
 type Server struct {
-	store  *database.Store
+	store  database.Store
 	router *gin.Engine
 }
 
-func NewServer(store *database.Store) *Server {
+func NewServer(store database.Store) *Server {
 	server := &Server{
 		store: store,
 	}
