@@ -69,7 +69,7 @@ type listServersRequest struct {
 	PageSize int32 `form:"page_size" binding:"required,min=5,max=10"`
 }
 
-func (server *Server) listServers(ctx *gin.Context) {
+func (server *Server) listTransfers(ctx *gin.Context) {
 	var req listServersRequest
 	if err := ctx.ShouldBindQuery(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, errorResponse(err))
