@@ -154,11 +154,11 @@ func (server *Server) updateUser(ctx *gin.Context) {
 		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
 		return
 	}
-	ctx.JSON(http.StatusOK, updatedUser)
+	ctx.JSON(http.StatusOK, fUserResponse(updatedUser))
 }
 
 type deleteUserRequest struct {
-	Username string `json:"username" binding:"required,alphanum"`
+	Username string `uri:"username" binding:"required,alphanum"`
 }
 
 func (server *Server) deleteUser(ctx *gin.Context) {
