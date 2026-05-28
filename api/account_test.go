@@ -164,7 +164,7 @@ func TestCreateAccountAPI(t *testing.T) {
 					Balance:  0,
 					Currency: account.Currency,
 				}
-				store.EXPECT().CreateAccount(gomock.Any(), gomock.Eq(arg)).Times(1).Return(database.Account{}, sql.ErrNoRows)
+				store.EXPECT().CreateAccount(gomock.Any(), gomock.Eq(arg)).Times(1).Return(database.Account{}, sql.ErrConnDone)
 			},
 			checkResponse: func(t *testing.T, recorder *httptest.ResponseRecorder) {
 				require.Equal(t, http.StatusInternalServerError, recorder.Code)
@@ -231,7 +231,49 @@ func TestListAccountsAPI(t *testing.T) {
 				require.Equal(t, http.StatusOK, recorder.Code)
 			},
 		},
-		{},
+		{
+			name: "BadRequestPageID",
+			query: listAccountsQuery{
+				pageID:   -1,
+				pageSize: 5,
+			},
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().ListAccounts(gomock.Any(), gomock.Any()).Times(0)
+			},
+			checkResponse: func(t *testing.T, recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusBadRequest, recorder.Code)
+			},
+		},
+		{
+			name: "BadRequestPageSize",
+			query: listAccountsQuery{
+				pageID:   1,
+				pageSize: 1,
+			},
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().ListAccounts(gomock.Any(), gomock.Any()).Times(0)
+			},
+			checkResponse: func(t *testing.T, recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusBadRequest, recorder.Code)
+			},
+		},
+		{
+			name: "InternalError",
+			query: listAccountsQuery{
+				pageID:   1,
+				pageSize: 5,
+			},
+			buildStubs: func(store *mockdb.MockStore) {
+				arg := database.ListAccountsParams{
+					Limit:  5,
+					Offset: 0,
+				}
+				store.EXPECT().ListAccounts(gomock.Any(), gomock.Eq(arg)).Times(1).Return([]database.Account{}, sql.ErrConnDone)
+			},
+			checkResponse: func(t *testing.T, recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusInternalServerError, recorder.Code)
+			},
+		},
 	}
 	for i := range testCases {
 		tc := testCases[i]
