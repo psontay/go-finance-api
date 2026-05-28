@@ -10,14 +10,14 @@ import (
 )
 
 const createUser = `-- name: CreateUser :one
-insert into users(
-                  username,
-                  hashed_password,
-                  full_name,
-                  email
-) values (
-          $1, $2, $3, $4
-         ) returning username, hashed_password, full_name, email, password_changed_at, created_at
+INSERT INTO users (
+    username,
+    hashed_password,
+    full_name,
+    email
+) VALUES (
+             $1, $2, $3, $4
+         ) RETURNING username, hashed_password, full_name, email, password_changed_at, created_at
 `
 
 type CreateUserParams struct {
@@ -46,12 +46,117 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 	return i, err
 }
 
+const deleteUser = `-- name: DeleteUser :exec
+delete from users where username = $1
+`
+
+func (q *Queries) DeleteUser(ctx context.Context, username string) error {
+	_, err := q.db.ExecContext(ctx, deleteUser, username)
+	return err
+}
+
 const getUser = `-- name: GetUser :one
-select username, hashed_password, full_name, email, password_changed_at, created_at from users where username = $1 limit 1
+SELECT username, hashed_password, full_name, email, password_changed_at, created_at FROM users
+WHERE username = $1 LIMIT 1
 `
 
 func (q *Queries) GetUser(ctx context.Context, username string) (User, error) {
 	row := q.db.QueryRowContext(ctx, getUser, username)
+	var i User
+	err := row.Scan(
+		&i.Username,
+		&i.HashedPassword,
+		&i.FullName,
+		&i.Email,
+		&i.PasswordChangedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getUserForUpdate = `-- name: GetUserForUpdate :one
+select username, hashed_password, full_name, email, password_changed_at, created_at from users where username = $1 limit 1 for no key update
+`
+
+func (q *Queries) GetUserForUpdate(ctx context.Context, username string) (User, error) {
+	row := q.db.QueryRowContext(ctx, getUserForUpdate, username)
+	var i User
+	err := row.Scan(
+		&i.Username,
+		&i.HashedPassword,
+		&i.FullName,
+		&i.Email,
+		&i.PasswordChangedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const listUsers = `-- name: ListUsers :many
+select username, hashed_password, full_name, email, password_changed_at, created_at from users order by username
+limit $1
+    offset $2
+`
+
+type ListUsersParams struct {
+	Limit  int32 `json:"limit"`
+	Offset int32 `json:"offset"`
+}
+
+func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]User, error) {
+	rows, err := q.db.QueryContext(ctx, listUsers, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []User
+	for rows.Next() {
+		var i User
+		if err := rows.Scan(
+			&i.Username,
+			&i.HashedPassword,
+			&i.FullName,
+			&i.Email,
+			&i.PasswordChangedAt,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const updateUser = `-- name: UpdateUser :one
+update users
+set
+    email = $2,
+    full_name = $3,
+    hashed_password = $4,
+    password_changed_at = now()
+where username = $1 returning username, hashed_password, full_name, email, password_changed_at, created_at
+`
+
+type UpdateUserParams struct {
+	Username       string `json:"username"`
+	Email          string `json:"email"`
+	FullName       string `json:"full_name"`
+	HashedPassword string `json:"hashed_password"`
+}
+
+func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error) {
+	row := q.db.QueryRowContext(ctx, updateUser,
+		arg.Username,
+		arg.Email,
+		arg.FullName,
+		arg.HashedPassword,
+	)
 	var i User
 	err := row.Scan(
 		&i.Username,
