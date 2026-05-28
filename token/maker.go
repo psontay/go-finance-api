@@ -1,0 +1,10 @@
+package token
+
+import "time"
+
+type maker interface {
+	// gen token for specific user
+	CreateToken(username string, duration time.Duration) (string, error)
+	// check token & get payload from it
+	VerifyToken(token string) (*Payload, error)
+}
