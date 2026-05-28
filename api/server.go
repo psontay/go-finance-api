@@ -1,6 +1,11 @@
 package api
 
-import database "SimpleBank/database/sqlc"
+import (
+	database "SimpleBank/database/sqlc"
+
+	"github.com/gin-gonic/gin/binding"
+	"github.com/go-playground/validator/v10"
+)
 import "github.com/gin-gonic/gin"
 
 // server serves http request
@@ -14,6 +19,15 @@ func NewServer(store database.Store) *Server {
 		store: store,
 	}
 	router := gin.Default()
+
+	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
+		err := v.RegisterValidation("currency", validCurrency)
+
+		if err != nil {
+			return server
+		}
+	}
+
 	router.POST("/accounts", server.createAccount)
 	router.GET("/accounts/:id", server.getAccount)
 	router.GET("/accounts", server.listAccounts)

@@ -14,7 +14,7 @@ type transferRequest struct {
 	FromAccountID int64  `binding:"required,min=1" json:"from_account_id"`
 	ToAccountID   int64  `json:"to_account_id" binding:"required,min=1"`
 	Amount        int64  `json:"amount" binding:"required,min=1"`
-	Currency      string `json:"currency" binding:"required,oneof=USD EUR VND CAD"`
+	Currency      string `json:"currency" binding:"required,currency"`
 }
 
 func (server *Server) createTransfer(ctx *gin.Context) {
@@ -40,6 +40,28 @@ func (server *Server) createTransfer(ctx *gin.Context) {
 		return
 	}
 	ctx.JSON(http.StatusOK, result)
+}
+
+type getTransferRequest struct {
+	ID int64 `uri:"id" binding:"required,min=1"`
+}
+
+func (server *Server) getTransfer(ctx *gin.Context) {
+	var req getTransferRequest
+	if err := ctx.ShouldBindUri(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, errorResponse(err))
+		return
+	}
+	transfer, err := server.store.GetTransfer(ctx, req.ID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			ctx.JSON(http.StatusBadRequest, errorResponse(err))
+			return
+		}
+		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+		return
+	}
+	ctx.JSON(http.StatusOK, transfer)
 }
 
 func (server *Server) validAccount(ctx *gin.Context, accountID int64, currency string) bool {
