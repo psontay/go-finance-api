@@ -53,12 +53,12 @@ func randomUser(t *testing.T) (database.User, string) {
 	require.NoError(t, err)
 
 	user := database.User{
-		Username:          util.RandomOwner(),
-		HashedPassword:    hashedPassword,
-		FullName:          util.RandomOwner(),
-		Email:             util.RandomEmail(),
-		PasswordChangedAt: time.Now(),
-		CreatedAt:         time.Now(),
+		Username:       util.RandomOwner(),
+		HashedPassword: hashedPassword,
+		FullName:       util.RandomOwner(),
+		Email:          util.RandomEmail(),
+		//PasswordChangedAt: time.Now(),
+		CreatedAt: time.Now(),
 	}
 	return user, password
 }
