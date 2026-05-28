@@ -1,6 +1,7 @@
 package token
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -49,6 +50,26 @@ func (maker *JWTMaker) CreateToken(username string, duration time.Duration) (str
 }
 
 func (maker *JWTMaker) VerifyToken(token string) (*Payload, error) {
-	//TODO implement me
-	panic("implement me")
+	// extract token
+	jwtToken, err := jwt.ParseWithClaims(token, &jwtCustomClaims{}, func(token *jwt.Token) (any, error) {
+		_, ok := token.Method.(*jwt.SigningMethodHMAC)
+		if !ok {
+			return nil, ErrInvalidToken
+		}
+		return []byte(maker.secretKey), nil
+	})
+	if err != nil {
+		if errors.Is(err, jwt.ErrTokenExpired) {
+			return nil, ErrExpiredToken
+		}
+	}
+	claims, ok := jwtToken.Claims.(*jwtCustomClaims)
+	if !ok {
+		return nil, ErrInvalidToken
+	}
+	err = claims.Payload.Valid()
+	if err != nil {
+		return nil, err
+	}
+	return claims.Payload, nil
 }
