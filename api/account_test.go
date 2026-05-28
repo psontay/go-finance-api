@@ -231,6 +231,7 @@ func TestListAccountsAPI(t *testing.T) {
 				require.Equal(t, http.StatusOK, recorder.Code)
 			},
 		},
+		{},
 	}
 	for i := range testCases {
 		tc := testCases[i]
