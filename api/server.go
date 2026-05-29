@@ -29,7 +29,6 @@ func NewServer(config util.Config, store database.Store) (*Server, error) {
 		config:     config,
 		tokenMaker: tokenMaker,
 	}
-	router := gin.Default()
 
 	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
 		err := v.RegisterValidation("currency", validCurrency)
@@ -39,33 +38,42 @@ func NewServer(config util.Config, store database.Store) (*Server, error) {
 		}
 	}
 
-	// account
-	router.POST("/accounts", server.createAccount)
-	router.GET("/accounts/:id", server.getAccount)
-	router.GET("/accounts", server.listAccounts)
+	server.setupRouter()
 
-	// transfer
-	router.POST("/transfers", server.createTransfer)
-	router.GET("/transfers/:id", server.getTransfer)
-	router.GET("/transfers", server.listTransfers)
-
-	// user
-	router.POST("/users", server.createUser)
-	router.GET("/users/:username", server.getUser)
-	router.GET("/users", server.listUsers)
-	router.PUT("/users", server.updateUser)
-	router.DELETE("/users/:username", server.deleteUser)
-
-	// auth
-	router.POST("/users/login", server.loginUser)
-
-	server.router = router
 	return server, nil
 }
 
 // run http server on a specific address
 func (server *Server) Start(address string) error {
 	return server.router.Run(address)
+}
+
+func (server *Server) setupRouter() {
+	router := gin.Default()
+	authRoutes := router.Group("/").Use(authMiddleware(server.tokenMaker))
+
+	// PRIVATE ROUTES
+	// account
+	authRoutes.POST("/accounts", server.createAccount)
+	authRoutes.GET("/accounts/:id", server.getAccount)
+	authRoutes.GET("/accounts", server.listAccounts)
+	// transfer
+	authRoutes.POST("/transfers", server.createTransfer)
+	authRoutes.GET("/transfers/:id", server.getTransfer)
+	authRoutes.GET("/transfers", server.listTransfers)
+	// user
+	authRoutes.GET("/users/:username", server.getUser)
+	authRoutes.GET("/users", server.listUsers)
+	authRoutes.PUT("/users", server.updateUser)
+	authRoutes.DELETE("/users/:username", server.deleteUser)
+
+	// PUBLIC ROUTES
+	// user
+	router.POST("/users", server.createUser)
+	// auth
+	router.POST("/users/login", server.loginUser)
+	server.router = router
+
 }
 
 func errorResponse(err error) gin.H {
