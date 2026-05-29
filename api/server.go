@@ -2,6 +2,9 @@ package api
 
 import (
 	database "SimpleBank/database/sqlc"
+	"SimpleBank/token"
+	"SimpleBank/util"
+	"fmt"
 
 	"github.com/gin-gonic/gin/binding"
 	"github.com/go-playground/validator/v10"
@@ -10,13 +13,21 @@ import "github.com/gin-gonic/gin"
 
 // server serves http request
 type Server struct {
-	store  database.Store
-	router *gin.Engine
+	store      database.Store
+	router     *gin.Engine
+	config     util.Config
+	tokenMaker token.Maker
 }
 
-func NewServer(store database.Store) *Server {
+func NewServer(config util.Config, store database.Store) (*Server, error) {
+	tokenMaker, err := token.NewPasetoMaker(config.TokenSymmetricKey)
+	if err != nil {
+		return nil, fmt.Errorf("cannot create token maker: %w", err)
+	}
 	server := &Server{
-		store: store,
+		store:      store,
+		config:     config,
+		tokenMaker: tokenMaker,
 	}
 	router := gin.Default()
 
@@ -24,7 +35,7 @@ func NewServer(store database.Store) *Server {
 		err := v.RegisterValidation("currency", validCurrency)
 
 		if err != nil {
-			return server
+			return server, fmt.Errorf("cannot binding validator: %w", err)
 		}
 	}
 
@@ -37,7 +48,7 @@ func NewServer(store database.Store) *Server {
 	router.GET("/transfers", server.listTransfers)
 
 	server.router = router
-	return server
+	return server, nil
 }
 
 // run http server on a specific address
