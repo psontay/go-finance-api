@@ -35,6 +35,8 @@ jobs:
           echo "DB_DRIVER=postgres" > .env
           echo "DB_SOURCE=postgresql://elvis:elvis@localhost:5432/simple_bank?sslmode=disable" >> .env
           echo "SERVER_ADDRESS=0.0.0.0:8080" >> .env
+          echo "TOKEN_SYMMETRIC_KEY=12345678901234567890123456789012" >> .env
+          echo "ACCESS_TOKEN_DURATION=15m" >> .env
 
       - name: Set up Go
         uses: actions/setup-go@v4
