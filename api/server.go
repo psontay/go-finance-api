@@ -39,13 +39,25 @@ func NewServer(config util.Config, store database.Store) (*Server, error) {
 		}
 	}
 
+	// account
 	router.POST("/accounts", server.createAccount)
 	router.GET("/accounts/:id", server.getAccount)
 	router.GET("/accounts", server.listAccounts)
 
+	// transfer
 	router.POST("/transfers", server.createTransfer)
 	router.GET("/transfers/:id", server.getTransfer)
 	router.GET("/transfers", server.listTransfers)
+
+	// user
+	router.POST("/users", server.createUser)
+	router.GET("/users/:username", server.getUser)
+	router.GET("/users", server.listUsers)
+	router.PUT("/users", server.updateUser)
+	router.DELETE("/users/:username", server.deleteUser)
+
+	// auth
+	router.POST("/users/login", server.loginUser)
 
 	server.router = router
 	return server, nil
