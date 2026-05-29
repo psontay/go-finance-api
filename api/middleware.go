@@ -50,3 +50,33 @@ func authMiddleware(tokenMaker token.Maker) gin.HandlerFunc {
 		ctx.Next()
 	}
 }
+
+func roleMiddleware(allowedRoles ...string) gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		authPayload, exists := ctx.Get(authorizationPayloadKey)
+		if !exists {
+			err := errors.New("authentication payload not found")
+			ctx.AbortWithStatusJSON(http.StatusInternalServerError, errorResponse(err))
+			return
+		}
+		payload, ok := authPayload.(*token.Payload)
+		if !ok {
+			err := errors.New("invalid authentication payload type")
+			ctx.AbortWithStatusJSON(http.StatusInternalServerError, errorResponse(err))
+			return
+		}
+		hasAccountedRole := false
+		for _, role := range allowedRoles {
+			if payload.Role == role {
+				hasAccountedRole = true
+				break
+			}
+		}
+		if !hasAccountedRole {
+			err := errors.New("user does not have permission to access this resource")
+			ctx.AbortWithStatusJSON(http.StatusForbidden, errorResponse(err))
+			return
+		}
+		ctx.Next()
+	}
+}
