@@ -92,8 +92,9 @@ func (server *Server) getTransfer(ctx *gin.Context) {
 }
 
 type listTransfersRequest struct {
-	PageID   int32 `form:"page_id" binding:"required,min=1"`
-	PageSize int32 `form:"page_size" binding:"required,min=5,max=10"`
+	AccountID int64 `form:"account_id" binding:"required,min=1"`
+	PageID    int32 `form:"page_id" binding:"required,min=1"`
+	PageSize  int32 `form:"page_size" binding:"required,min=5,max=10"`
 }
 
 func (server *Server) listTransfers(ctx *gin.Context) {
@@ -102,17 +103,32 @@ func (server *Server) listTransfers(ctx *gin.Context) {
 		ctx.JSON(http.StatusBadRequest, errorResponse(err))
 		return
 	}
-	arg := database.ListTransfersParams{
-		Limit:  req.PageSize,
-		Offset: (req.PageID - 1) * req.PageSize,
-	}
 
-	transfers, err := server.store.ListTransfers(ctx, arg)
+	account, err := server.store.GetAccount(ctx, req.AccountID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			ctx.JSON(http.StatusNotFound, errorResponse(err))
 			return
 		}
+		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+		return
+	}
+
+	authPayload := ctx.MustGet(authorizationPayloadKey).(*token.Payload)
+	if account.Owner != authPayload.Username {
+		err := errors.New("account doesn't belong to the authenticated user")
+		ctx.JSON(http.StatusUnauthorized, errorResponse(err))
+		return
+	}
+	arg := database.ListTransfersParams{
+		FromAccountID: req.AccountID,
+		ToAccountID:   req.AccountID,
+		Limit:         req.PageSize,
+		Offset:        (req.PageID - 1) * req.PageSize,
+	}
+
+	transfers, err := server.store.ListTransfers(ctx, arg)
+	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
 		return
 	}

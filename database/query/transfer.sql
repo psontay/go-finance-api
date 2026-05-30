@@ -9,6 +9,7 @@ insert into transfer(
 select * from transfer where id = $1 limit 1;
 
 -- name: ListTransfers :many
-select * from transfer order by id
-limit  $1
-offset $2;
+SELECT * FROM transfer
+WHERE from_account_id = $1 OR to_account_id = $2
+ORDER BY id
+LIMIT $3 OFFSET $4;
