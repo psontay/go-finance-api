@@ -83,7 +83,9 @@ func (server *Server) setupRouter() {
 	clientRoutes.POST("/accounts", server.createAccount)
 	clientRoutes.GET("/accounts/:id", server.getAccount)
 	clientRoutes.GET("/accounts", server.listAccountsOwner)
-	clientRoutes.POST("/transfers", server.createTransfer)
+	
+	// Apply Rate Limiting to Transfer API: 5 requests per minute per user
+	clientRoutes.POST("/transfers", RateLimiterMiddleware(server.redis, 5, time.Minute), server.createTransfer)
 	clientRoutes.GET("/transfers/:id", server.getTransfer)
 
 	// PUBLIC ROUTES

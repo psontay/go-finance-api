@@ -3,10 +3,13 @@ package api
 import (
 	"SimpleBank/token"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 )
 
 const (
@@ -14,6 +17,43 @@ const (
 	authorizationTypeBearer = "bearer"
 	authorizationPayloadKey = "authorization_payload"
 )
+
+// RateLimiterMiddleware creates a middleware that limits requests by User IP or Username
+func RateLimiterMiddleware(redisClient *redis.Client, limit int, window time.Duration) gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		var identifier string
+		authPayload, exists := ctx.Get(authorizationPayloadKey)
+		if exists {
+			payload, ok := authPayload.(*token.Payload)
+			if ok {
+				identifier = payload.Username
+			}
+		}
+
+		if identifier == "" {
+			identifier = ctx.ClientIP()
+		}
+
+		key := fmt.Sprintf("rate_limit:%s:%s", ctx.FullPath(), identifier)
+
+		pipe := redisClient.TxPipeline()
+		incr := pipe.Incr(ctx, key)
+		pipe.Expire(ctx, key, window)
+		_, err := pipe.Exec(ctx)
+
+		if err != nil {
+			ctx.AbortWithStatusJSON(http.StatusInternalServerError, errorResponse(fmt.Errorf("failed to check rate limit: %v", err)))
+			return
+		}
+
+		if incr.Val() > int64(limit) {
+			ctx.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{"error": "rate limit exceeded, please try again later"})
+			return
+		}
+
+		ctx.Next()
+	}
+}
 
 func authMiddleware(tokenMaker token.Maker) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
