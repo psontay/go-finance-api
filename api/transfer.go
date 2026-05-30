@@ -2,6 +2,7 @@ package api
 
 import (
 	database "SimpleBank/database/sqlc"
+	"SimpleBank/token"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -23,12 +24,28 @@ func (server *Server) createTransfer(ctx *gin.Context) {
 		ctx.JSON(http.StatusBadRequest, errorResponse(err))
 		return
 	}
-	if !server.validAccount(ctx, req.FromAccountID, req.Currency) {
+	if req.FromAccountID == req.ToAccountID {
+		err := errors.New("cannot transfer money to the same account")
+		ctx.JSON(http.StatusBadRequest, errorResponse(err))
 		return
 	}
-	if !server.validAccount(ctx, req.ToAccountID, req.Currency) {
+	fromAccount, valid := server.validAccount(ctx, req.FromAccountID, req.Currency)
+	if !valid {
 		return
 	}
+
+	authPayload := ctx.MustGet(authorizationPayloadKey).(*token.Payload)
+	if fromAccount.Owner != authPayload.Username {
+		err := errors.New("from account doesn't belong to the authenticated user")
+		ctx.JSON(http.StatusUnauthorized, errorResponse(err))
+		return
+	}
+
+	_, valid = server.validAccount(ctx, req.ToAccountID, req.Currency)
+	if !valid {
+		return
+	}
+
 	arg := database.TransferTxParams{
 		FromAccountID: req.FromAccountID,
 		ToAccountID:   req.ToAccountID,
@@ -52,7 +69,17 @@ func (server *Server) getTransfer(ctx *gin.Context) {
 		ctx.JSON(http.StatusBadRequest, errorResponse(err))
 		return
 	}
+
+	authPayload := ctx.MustGet(authorizationPayloadKey).(*token.Payload)
+
 	transfer, err := server.store.GetTransfer(ctx, req.ID)
+	fromAccountTransfer, _ := server.store.GetAccount(ctx, transfer.FromAccountID)
+	toAccountTransfer, _ := server.store.GetAccount(ctx, transfer.ToAccountID)
+	if (authPayload.Username != fromAccountTransfer.Owner) && (authPayload.Username != toAccountTransfer.Owner) {
+		err := errors.New("transfer doesn't belong to the authenticated user")
+		ctx.JSON(http.StatusBadRequest, errorResponse(err))
+		return
+	}
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			ctx.JSON(http.StatusNotFound, errorResponse(err))
@@ -64,13 +91,13 @@ func (server *Server) getTransfer(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, transfer)
 }
 
-type listServersRequest struct {
+type listTransfersRequest struct {
 	PageID   int32 `form:"page_id" binding:"required,min=1"`
 	PageSize int32 `form:"page_size" binding:"required,min=5,max=10"`
 }
 
 func (server *Server) listTransfers(ctx *gin.Context) {
-	var req listServersRequest
+	var req listTransfersRequest
 	if err := ctx.ShouldBindQuery(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, errorResponse(err))
 		return
@@ -92,21 +119,21 @@ func (server *Server) listTransfers(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, transfers)
 }
 
-func (server *Server) validAccount(ctx *gin.Context, accountID int64, currency string) bool {
+func (server *Server) validAccount(ctx *gin.Context, accountID int64, currency string) (database.Account, bool) {
 	account, err := server.store.GetAccount(ctx, accountID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			ctx.JSON(http.StatusNotFound, errorResponse(err))
-			return false
+			return database.Account{}, false
 		}
 		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
-		return false
+		return database.Account{}, false
 	}
 
 	if account.Currency != currency {
 		err := fmt.Errorf("account [%d] currency mismatch: %s vs %s", accountID, account.Currency, currency)
 		ctx.JSON(http.StatusBadRequest, errorResponse(err))
-		return false
+		return account, false
 	}
-	return true
+	return account, true
 }

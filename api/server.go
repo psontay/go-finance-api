@@ -34,7 +34,12 @@ func NewServer(config util.Config, store database.Store) (*Server, error) {
 		err := v.RegisterValidation("currency", validCurrency)
 
 		if err != nil {
-			return server, fmt.Errorf("cannot binding validator: %w", err)
+			return server, fmt.Errorf("cannot register currency validator: %w", err)
+		}
+		err = v.RegisterValidation("role", validRole)
+
+		if err != nil {
+			return server, fmt.Errorf("cannot register role validator: %w", err)
 		}
 	}
 
@@ -50,29 +55,37 @@ func (server *Server) Start(address string) error {
 
 func (server *Server) setupRouter() {
 	router := gin.Default()
-	authRoutes := router.Group("/").Use(authMiddleware(server.tokenMaker))
 
-	// PRIVATE ROUTES
-	// account
-	authRoutes.POST("/accounts", server.createAccount)
-	authRoutes.GET("/accounts/:id", server.getAccount)
-	authRoutes.GET("/accounts", server.listAccounts)
-	// transfer
-	authRoutes.POST("/transfers", server.createTransfer)
-	authRoutes.GET("/transfers/:id", server.getTransfer)
-	authRoutes.GET("/transfers", server.listTransfers)
-	// user
-	authRoutes.GET("/users/:username", server.getUser)
-	authRoutes.GET("/users", server.listUsers)
-	authRoutes.PUT("/users", server.updateUser)
-	authRoutes.DELETE("/users/:username", server.deleteUser)
+	// ROUTES
+	authRoutes := router.Group("/")
+	authRoutes.Use(authMiddleware(server.tokenMaker))
+	clientRoutes := authRoutes.Group("/")
+	clientRoutes.Use(roleMiddleware("depositor", "admin"))
+	adminRoutes := authRoutes.Group("/")
+	adminRoutes.Use(roleMiddleware("admin"))
 
-	// PUBLIC ROUTES
-	// user
-	router.POST("/users", server.createUser)
+	// ADMIN ROUTES
+	adminRoutes.POST("/users", server.createUser)
+	adminRoutes.GET("/transfers", server.listTransfers)
+	adminRoutes.GET("/users/:username", server.getUser)
+	adminRoutes.GET("/users", server.listUsers)
+	adminRoutes.PUT("/users", server.updateUser)
+	adminRoutes.DELETE("/users/:username", server.deleteUser)
+	adminRoutes.GET("/accounts/admin/list", server.listAccounts)
 	// auth
 	router.POST("/users/login", server.loginUser)
 	router.POST("/tokens/renew_access", server.renewAccessToken)
+
+	// CLIENT ROUTES
+	clientRoutes.POST("/accounts", server.createAccount)
+	clientRoutes.GET("/accounts/:id", server.getAccount)
+	clientRoutes.GET("/accounts", server.listAccountsOwner)
+	clientRoutes.POST("/transfers", server.createTransfer)
+	clientRoutes.GET("/transfers/:id", server.getTransfer)
+
+	// PUBLIC ROUTES
+	router.POST("/users/register", server.registerUser)
+
 	server.router = router
 
 }

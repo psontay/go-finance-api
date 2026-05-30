@@ -12,3 +12,10 @@ var validCurrency validator.Func = func(fl validator.FieldLevel) bool {
 	}
 	return false
 }
+
+var validRole validator.Func = func(fl validator.FieldLevel) bool {
+	if role, ok := fl.Field().Interface().(string); ok {
+		return util.IsSupportedRole(role)
+	}
+	return false
+}

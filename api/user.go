@@ -15,6 +15,7 @@ import (
 
 type createUserRequest struct {
 	Username string `json:"username" binding:"required,alphanum"`
+	Role     string `json:"role" binding:"required,role"`
 	Password string `json:"password" binding:"required,min=6"`
 	FullName string `json:"fullName" binding:"required"`
 	Email    string `json:"email" binding:"required,email"`
@@ -54,9 +55,58 @@ func (server *Server) createUser(ctx *gin.Context) {
 
 	arg := database.CreateUserParams{
 		Username:       req.Username,
+		Role:           req.Role,
 		HashedPassword: hashPasswordForReq,
 		FullName:       req.FullName,
 		Email:          req.Email,
+	}
+
+	user, err := server.store.CreateUser(ctx, arg)
+	if err != nil {
+		if pqErr, ok := err.(*pq.Error); ok {
+			switch pqErr.Code.Name() {
+			case "foreign_key_violation", "unique_violation":
+				ctx.JSON(http.StatusForbidden, errorResponse(err))
+				return
+			}
+		}
+		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+		return
+	}
+	ctx.JSON(http.StatusOK, fUserResponse(user))
+}
+
+type registerUserRequest struct {
+	Username        string `json:"username" binding:"required,alphanum"`
+	Password        string `json:"password" binding:"required,min=6"`
+	ConfirmPassword string `json:"confirm_password" binding:"required,min=6"`
+	FullName        string `json:"fullName" binding:"required"`
+	Email           string `json:"email" binding:"required,email"`
+}
+
+func (server *Server) registerUser(ctx *gin.Context) {
+	var req registerUserRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, errorResponse(err))
+		return
+	}
+	if req.Password != req.ConfirmPassword {
+		err := errors.New("passwords do not match")
+		ctx.JSON(http.StatusBadRequest, errorResponse(err))
+		return
+	}
+	hashPasswordForReq, err := util.HashPassword(req.Password)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+		return
+	}
+
+	arg := database.CreateUserParams{
+		Username:       req.Username,
+		HashedPassword: hashPasswordForReq,
+		FullName:       req.FullName,
+		Email:          req.Email,
+		Role:           util.CLIENT,
 	}
 
 	user, err := server.store.CreateUser(ctx, arg)

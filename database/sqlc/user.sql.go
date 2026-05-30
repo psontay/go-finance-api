@@ -12,16 +12,18 @@ import (
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (
     username,
+   role,
     hashed_password,
     full_name,
     email
 ) VALUES (
-             $1, $2, $3, $4
+             $1, $2, $3, $4, $5
          ) RETURNING username, hashed_password, full_name, email, password_changed_at, created_at, role
 `
 
 type CreateUserParams struct {
 	Username       string `json:"username"`
+	Role           string `json:"role"`
 	HashedPassword string `json:"hashed_password"`
 	FullName       string `json:"full_name"`
 	Email          string `json:"email"`
@@ -30,6 +32,7 @@ type CreateUserParams struct {
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
 	row := q.db.QueryRowContext(ctx, createUser,
 		arg.Username,
+		arg.Role,
 		arg.HashedPassword,
 		arg.FullName,
 		arg.Email,
