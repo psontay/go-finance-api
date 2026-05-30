@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin/binding"
 	"github.com/go-playground/validator/v10"
+	"github.com/redis/go-redis/v9"
 )
 import "github.com/gin-gonic/gin"
 
@@ -17,9 +18,10 @@ type Server struct {
 	router     *gin.Engine
 	config     util.Config
 	tokenMaker token.Maker
+	redis      *redis.Client
 }
 
-func NewServer(config util.Config, store database.Store) (*Server, error) {
+func NewServer(config util.Config, store database.Store, redisClient *redis.Client) (*Server, error) {
 	tokenMaker, err := token.NewPasetoMaker(config.TokenSymmetricKey)
 	if err != nil {
 		return nil, fmt.Errorf("cannot create token maker: %w", err)
@@ -28,6 +30,7 @@ func NewServer(config util.Config, store database.Store) (*Server, error) {
 		store:      store,
 		config:     config,
 		tokenMaker: tokenMaker,
+		redis:      redisClient,
 	}
 
 	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {

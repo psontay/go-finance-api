@@ -20,7 +20,9 @@ func main() {
 		log.Fatal("cannot connect to database:", err)
 	}
 	store := database.NewStore(conn)
-	server, err := api.NewServer(config, store)
+	redisClient := util.NewRedisClient(config.RedisAddress)
+	defer redisClient.Close()
+	server, err := api.NewServer(config, store, redisClient)
 	if err != nil {
 		log.Fatal("cannot create server:", err)
 	}
