@@ -34,4 +34,13 @@ mock:
 migrate_create:
 	migrate create -ext sql -dir database/migration -seq $(name)
 
-.PHONY: postgres createdb dropdb migratedown migrateup migrateup1 migratedown1 sqlc test server mock migrate_create
+compose-up:
+	docker-compose up -d
+compose-down:
+	docker-compose down
+compose-down-clear:
+	docker-compose down -v
+redis-cli:
+	docker exec -it simplebank_redis redis-cli
+
+.PHONY: postgres createdb dropdb migratedown migrateup migrateup1 migratedown1 sqlc test server mock migrate_create compose-down compose-up compose-down-clear redis-cli
